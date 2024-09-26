@@ -12,21 +12,15 @@ A lightweight dict-like config library with validation support
 You can install cfgdict directly from GitHub using pip:
 
 ```bash
+pip install cfgdict
+```
+
+```bash
 pip install git+https://github.com/gseismic/cfgdict.git
 ```
 
-For development installation:
-
-```bash
-git clone https://github.com/gseismic/cfgdict.git
-cd cfgdict
-pip install -e .
-```
-
 ## Usage
-
 ### Creating a Config
-
 ```python
 from cfgdict import Config
 
