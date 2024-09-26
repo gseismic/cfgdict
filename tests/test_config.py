@@ -1,3 +1,4 @@
+import os
 import pytest
 from cfgdict import Config, ConfigValidationError, ConfigKeyError
 
@@ -124,3 +125,27 @@ def test_config_nested_attribute_access(sample_schema, sample_config):
     config['a.e'] = 5
     assert config.to_dict() == {'a': {'b': {'c': 3}, 'e': 5}}
     print(config.to_dict())
+    
+def test_getenv():
+    config_dict = {
+        'database': {
+            'host': '!env DATABASE_HOST',
+            'port': '!env DATABASE_PORT'
+        }
+    }
+
+    config_schema = [
+        dict(field='database.host', required=True, rules=dict(type='str')),
+        dict(field='database.port', required=True, rules=dict(type='int', min=1, max=65535))
+    ]
+
+    # # 设置环境变量
+    os.environ['DATABASE_HOST'] = 'localhost'
+    os.environ['DATABASE_PORT'] = '5555'
+
+    config = Config.from_dict(config_dict, schema=config_schema)
+
+    assert config.database.host == 'localhost'
+    assert config.database.port == '5555'
+    print(config.database.host)  # 输出: localhost
+    print(config.database.port)  # 输出: 5432

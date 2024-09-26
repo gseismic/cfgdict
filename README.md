@@ -22,9 +22,11 @@ pip install git+https://github.com/gseismic/cfgdict.git
 ## Usage
 ### Creating a Config
 ```python
+import os
 from cfgdict import Config
 
 config_schema = [
+    dict(field='API_KEY', required=True, rules=dict(type='str')),
     dict(field='n_step', required=True, default=3, rules=dict(type='int', gt=0)),
     dict(field='learning_rate', required=True, default=0.1, rules=dict(type='float', gt=0, max=1)),
     dict(field='nest.gamma', required=True, default=0.99, rules=dict(type='float', min=0, max=1)),
@@ -32,7 +34,12 @@ config_schema = [
     dict(field='nest.verbose_freq', required=True, default=10, rules=dict(type='int', gt=0)),
 ]
 
+os.environ['API_KEY'] = 'secret'
+
+# '!env API_KEY': read from env
+# inspired by https://github.com/drkostas/yaml-config-wrapper 
 cfg_dict = {
+    'API_KEY': '!env API_KEY',
     'n_step': 3,
     'learning_rate': 0.1,
     'nest': {
@@ -161,6 +168,9 @@ config = Config.from_dict({'even_number': 4}, schema=config_schema)
 For more usage examples, please refer to:
 - [tests/test_config.py](./tests/test_config.py)
 - [tests/test_utils.py](./tests/test_utils.py)
+
+## ChangeLog
+- 2024-09-26 support read from env
 
 ## Contributing
 We welcome issue reports and pull requests. If you have any suggestions or improvements, please feel free to contribute.

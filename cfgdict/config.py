@@ -60,6 +60,7 @@ class Config:
                 value = schema['default']
                 if self._verbose:
                     self._logger.info(f"Using default value for '{field}': {value}")
+            value = self._resolve_value(value)  # 解析环境变量
             self._set_nested_value(field, value)
 
         # Second pass: validate all fields
@@ -165,6 +166,7 @@ class Config:
         for key in keys:
             if isinstance(value, dict) and key in value:
                 value = value[key]
+                value = self._resolve_value(value)  # 解析环境变量
             else:
                 return None
         return value
@@ -184,6 +186,13 @@ class Config:
             self._update_nested_dict(current[keys[-1]], value)
         else:
             current[keys[-1]] = value
+    
+    def _resolve_value(self, value):
+        if isinstance(value, str):
+            if value.lower().startswith('!env'):
+                env_key = value[4:].strip().lstrip('{').rstrip('}').strip()
+                value = os.getenv(env_key)
+        return value
 
     def _update_nested_dict(self, current: dict, update: dict):
         for k, v in update.items():
