@@ -18,8 +18,8 @@ class Config:
     def __init__(self, 
                  config_dict: Optional[Dict[str, Any]] = None, 
                  schema: Optional[List[Dict[str, Any]]] = None, 
-                 strict: bool = False, 
-                 verbose: bool = False, 
+                 strict: bool = None, 
+                 verbose: bool = None, 
                  logger: Optional[Any] = None):
         """
         Initialize a Config object.
@@ -33,8 +33,8 @@ class Config:
         """
         self._config = config_dict or {}
         self._schema = {item['field']: item for item in (schema or [])}
-        self._strict = strict
-        self._verbose = verbose
+        self._strict = strict or False
+        self._verbose = verbose or False
         self._logger = logger or default_logger
 
         self._validate_schema()
@@ -292,11 +292,11 @@ class Config:
         return self._config
 
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any], schema: List[Dict[str, Any]], strict: bool = True, verbose: bool = False, logger: Optional[Any] = None):
+    def from_dict(cls, config_dict: Dict[str, Any], schema: List[Dict[str, Any]], strict: bool = None, verbose: bool = None, logger: Optional[Any] = None):
         return cls(config_dict, schema, strict, verbose, logger)
 
     @classmethod
-    def from_json(cls, json_str: str, schema: List[Dict[str, Any]], strict: bool = True, verbose: bool = False, logger: Optional[Any] = None):
+    def from_json(cls, json_str: str, schema: List[Dict[str, Any]], strict: bool = None, verbose: bool = None, logger: Optional[Any] = None):
         config_dict = json.loads(json_str)
         return cls(config_dict, schema, strict, verbose, logger)
 

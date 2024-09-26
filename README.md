@@ -110,9 +110,7 @@ In this example:
 - 'score' is optional with a default of 0, must be a float between 0 and 100 (inclusive)
 - 'status' is required and must be a string not equal to 'inactive'
 
-## Advanced Usage
-
-### Nested Configurations
+### Examples3
 
 cfgdict supports nested configurations:
 
@@ -139,7 +137,8 @@ nested_config = Config.from_dict({
             'products': '/api/v1/products'
         }
     }
-}, schema=nested_schema)
+}, schema=nested_schema, verbose=True)
+# verbose=True: log enabled
 
 print(config.to_dict())
 ```
