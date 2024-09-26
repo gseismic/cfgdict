@@ -44,9 +44,7 @@ setup(
         'Programming Language :: Python :: 3.12',
         'Programming Language :: Python :: 3.13',
         "Programming Language :: Python :: Implementation :: PyPy",
-
         'Topic :: Software Development :: Libraries',
-        'Topic :: Scientific/Engineering :: Data Analysis',
         'Topic :: Utilities'
     ],
     zip_safe=False,
