@@ -29,7 +29,6 @@ setup(
     author=about['__author__'],
     url='http://github.com/gseismic/cfgdict',
     classifiers=[
-        'Development Status :: 5 - Production/Stable',
         "Environment :: Web Environment",
         "Intended Audience :: Developers",
         'License :: OSI Approved :: MIT License',  
