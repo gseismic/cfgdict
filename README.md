@@ -6,6 +6,7 @@ A lightweight dict-like config library with validation support
 - Provides configuration validation with customizable rules
 - Includes utility functions for flattening and reconstructing dictionaries
 - Easy-to-use API for creating and managing configurations
+- Support reading from environ by `!env ENV_XXX`
 
 ## Installation
 
