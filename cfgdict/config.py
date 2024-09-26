@@ -7,6 +7,7 @@ from datetime import datetime, date
 from typing import Any, Dict, List, Optional, Union, Set
 from copy import deepcopy
 from loguru import logger as default_logger
+from .utils import flatten_dict
 
 class ConfigValidationError(Exception):
     pass
@@ -297,8 +298,11 @@ class Config:
 
         return differences
 
-    def to_dict(self) -> Dict[str, Any]:
-        return self._config
+    def to_dict(self, flatten=False, sep='.') -> Dict[str, Any]:
+        if not flatten:
+            return self._config
+        else:
+            return flatten_dict(self._config, sep=sep)
 
     @classmethod
     def from_dict(cls, config_dict: Dict[str, Any], schema: List[Dict[str, Any]], strict: bool = None, verbose: bool = None, logger: Optional[Any] = None):
