@@ -117,6 +117,8 @@ In this example:
 cfgdict supports nested configurations:
 
 ```python
+from cfgdict import Config
+
 nested_schema = [
     dict(field='database.host', required=True, rules=dict(type='str')),
     dict(field='database.port', required=True, rules=dict(type='int', min=1, max=65535)),
@@ -138,24 +140,26 @@ nested_config = Config.from_dict({
         }
     }
 }, schema=nested_schema)
+
+print(config.to_dict())
 ```
 
 ### Custom Validation Rules
-
 You can extend the validation system with custom rules:
 
 ```python
-from cfgdict import Config, ValidationError
+from cfgdict import Config, ConfigValidationError
 
 def validate_even(value):
     if value % 2 != 0:
-        raise ValidationError(f"Value {value} is not even")
+        raise ConfigValidationError(f"Value {value} is not even")
 
 config_schema = [
     dict(field='even_number', required=True, rules=dict(type='int', custom=validate_even))
 ]
 
-config = Config.from_dict({'even_number': 4}, schema=config_schema)  # Valid
+config = Config.from_dict({'even_number': 4}, schema=config_schema) 
+ # Valid
 # config = Config.from_dict({'even_number': 3}, schema=config_schema)  # Raises ValidationError
 ```
 

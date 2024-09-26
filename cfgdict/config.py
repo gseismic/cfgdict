@@ -79,8 +79,18 @@ class Config:
                 self._apply_length_rule(field, value, rule, self._resolve_reference(rule_value))
             elif rule == 'regex':
                 self._apply_regex_rule(field, value, rule_value)
+            elif rule == 'custom':
+                self._apply_custom_rule(field, value, rule_value)
 
         return value
+
+    def _apply_custom_rule(self, field: str, value: Any, custom_func):
+        if not callable(custom_func):
+            raise ConfigValidationError(f"Custom rule for field '{field}' must be a callable")
+        try:
+            custom_func(value)
+        except Exception as e:
+            raise ConfigValidationError(f"Custom validation failed for field '{field}': {str(e)}")
 
     def _convert_type(self, value: Any, expected_type: str) -> Any:
         type_mapping = {
