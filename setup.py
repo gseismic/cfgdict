@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 about = {}
 here = os.path.abspath(os.path.dirname(__file__))
 print(here)
-with open(os.path.join(here, "cfgdict", "__version__.py"), "r") as f:
+with open(os.path.join(here, "cfgdict", "version.py"), "r") as f:
     exec(f.read(), about)
 
 with open("README.md", "r") as f:

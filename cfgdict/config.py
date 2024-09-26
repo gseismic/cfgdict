@@ -335,3 +335,10 @@ class Config:
             referenced_value = self._get_nested_value(self._config, referenced_field)
             return referenced_value
         return value
+
+
+def make_config(config, schema, strict=False, logger=None, to_dict=False, to_dict_flatten=False, to_dict_sep='.'):
+    config = Config(config, schema=schema, strict=strict, logger=logger)
+    if to_dict:
+        return config.to_dict(flatten=to_dict_flatten, sep=to_dict_sep)
+    return config

@@ -50,8 +50,24 @@ cfg_dict = {
     }
 }
 
-config = Config.from_dict(cfg_dict, schema=config_schema, strict=True)
-print(config.to_dict())
+cfg = Config.from_dict(cfg_dict, schema=config_schema, strict=True)
+print(cfg.to_dict())
+
+# or use make_config [recommended]
+cfg = make_config(cfg_dict, config_schema, strict=True)
+print(cfg.to_dict())
+
+# or use make_config with to_dict=True
+cfg = make_config(cfg_dict, config_schema, strict=True, to_dict=True, logger=None, verbose=False)
+print(cfg) # python-dict
+
+# or use make_config with to_dict_flatten=True
+cfg = make_config(cfg_dict, config_schema, strict=True, to_dict=True, to_dict_flatten=True)
+print(cfg) # python-dict
+
+# or use make_config with to_dict_sep
+cfg = make_config(cfg_dict, config_schema, strict=True, to_dict=True, to_dict_flatten=True, to_dict_sep='.')
+print(cfg) # python-dict
 ```
 
 ### Flattening and Unflattening Dictionaries
