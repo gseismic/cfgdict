@@ -110,7 +110,8 @@ In this example:
 - 'score' is optional with a default of 0, must be a float between 0 and 100 (inclusive)
 - 'status' is required and must be a string not equal to 'inactive'
 
-### Examples3
+### Nested configurations with logger
+set `verbose=True`
 
 cfgdict supports nested configurations:
 
