@@ -112,6 +112,15 @@ Comparison operators:
 - `le`: Less than or equal to
 - `min`: Minimum value (inclusive)
 - `max`: Maximum value (inclusive)
+- `custom`: Custom validation function
+- `len`: Length of the field (e.g., 'str', 'list', 'dict')
+- `choices`: Choices of the field (e.g., 'str', 'list', 'dict')
+- `pattern`: Regular expression pattern for string validation
+- `unique`: Ensure all elements in a list are unique
+- `contains`: Ensure a value is in a list
+- `range`: Range of the field (e.g., 'int', 'float')
+- `allowed_values`: Allowed values for the field (e.g., 'str', 'list', 'dict')
+- `disallowed_values`: Disallowed values for the field (e.g., 'str', 'list', 'dict')
 
 Example usage:
 

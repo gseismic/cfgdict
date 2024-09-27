@@ -149,3 +149,200 @@ def test_getenv():
     assert config.database.port == '5555'
     print(config.database.host)  # 输出: localhost
     print(config.database.port)  # 输出: 5432
+
+def test_allowed_and_disallowed_values():
+    schema = [
+        dict(field='status', required=True, rules=dict(
+            type='str',
+            allowed_values=['active', 'inactive', 'pending']
+        )),
+        dict(field='error_code', required=True, rules=dict(
+            type='int',
+            disallowed_values=[0, 999]
+        ))
+    ]
+
+    # 测试有效配置
+    valid_config = {
+        'status': 'active',
+        'error_code': 404
+    }
+    config = Config(valid_config, schema)
+    assert config.status == 'active'
+    assert config.error_code == 404
+
+    # 测试 allowed_values 规则
+    with pytest.raises(ConfigValidationError) as exc_info:
+        Config({'status': 'deleted', 'error_code': 404}, schema)
+    assert "Field 'status' with value deleted is not in the allowed values" in str(exc_info.value)
+
+    # 测试 disallowed_values 规则
+    with pytest.raises(ConfigValidationError) as exc_info:
+        Config({'status': 'active', 'error_code': 0}, schema)
+    assert "Field 'error_code' with value 0 is in the disallowed values" in str(exc_info.value)
+
+    # 测试更新操作
+    config = Config(valid_config, schema)
+    with pytest.raises(ConfigValidationError):
+        config.update(status='expired')
+    
+    with pytest.raises(ConfigValidationError):
+        config.update(error_code=999)
+
+    # 测试有效更新
+    config.update(status='inactive', error_code=500)
+    assert config.status == 'inactive'
+    assert config.error_code == 500
+
+def test_additional_validation_rules():
+    schema = [
+        dict(field='status', required=True, rules=dict(
+            type='str',
+            choices=['active', 'inactive', 'pending']
+        )),
+        dict(field='score', required=True, rules=dict(
+            type='int',
+            range=(0, 100)
+        )),
+        dict(field='username', required=True, rules=dict(
+            type='str',
+            pattern=r'^[a-zA-Z0-9_]{3,16}$'
+        )),
+        dict(field='tags', required=True, rules=dict(
+            type='list',
+            unique=True
+        )),
+        dict(field='description', required=True, rules=dict(
+            type='str',
+            contains='important'
+        ))
+    ]
+
+    valid_config = {
+        'status': 'active',
+        'score': 85.5,
+        'username': 'user_123',
+        'tags': ['tag1', 'tag2', 'tag3'],
+        'description': 'This is an important message'
+    }
+
+    config = Config(valid_config, schema)
+    assert config.status == 'active'
+    assert config.score == 85.5
+    assert config.username == 'user_123'
+    assert config.tags == ['tag1', 'tag2', 'tag3']
+    assert config.description == 'This is an important message'
+
+    # Test choices rule
+    with pytest.raises(ConfigValidationError) as exc_info:
+        config = Config({**valid_config, 'status': 'deleted'}, schema)
+        print(config.to_dict())
+    assert "Field 'status' with value deleted is not in the choices" in str(exc_info.value)
+
+    # return
+    # Test range rule
+    with pytest.raises(ConfigValidationError) as exc_info:
+        Config({**valid_config, 'score': 101}, schema)
+    assert "Field 'score' with value 101 is not in the range" in str(exc_info.value)
+
+    # Test pattern rule
+    with pytest.raises(ConfigValidationError) as exc_info:
+        Config({**valid_config, 'username': 'user@123'}, schema)
+    assert "Field 'username' does not match the required pattern" in str(exc_info.value)
+
+    # Test unique rule
+    with pytest.raises(ConfigValidationError) as exc_info:
+        Config({**valid_config, 'tags': ['tag1', 'tag2', 'tag1']}, schema)
+    assert "Field 'tags' contains duplicate values" in str(exc_info.value)
+
+    # Test contains rule
+    with pytest.raises(ConfigValidationError) as exc_info:
+        Config({**valid_config, 'description': 'This is a message'}, schema)
+    assert "Field 'description' does not contain the required substring" in str(exc_info.value)
+
+def test_choices_vs_allowed_values():
+    schema = [
+        dict(field='color', required=True, rules=dict(
+            type='str',
+            choices=['red', 'green', 'blue']
+        )),
+        dict(field='country', required=True, rules=dict(
+            type='str',
+            allowed_values=['USA', 'Canada', 'UK', 'France', 'Germany', 'Japan', 'Australia', 'Brazil', 'China', 'India']
+        ))
+    ]
+
+    valid_config = {
+        'color': 'red',
+        'country': 'USA'
+    }
+
+    config = Config(valid_config, schema)
+    assert config.color == 'red'
+    assert config.country == 'USA'
+
+    # Test choices with too many options
+    with pytest.raises(ConfigValidationError) as exc_info:
+        Config({'color': 'red', 'country': 'USA'}, [
+            dict(field='color', required=True, rules=dict(
+                type='str',
+                choices=['red', 'green', 'blue', 'yellow', 'purple', 'orange', 'pink', 'brown', 'gray', 'black',
+                         'white', 'cyan', 'magenta', 'lime', 'olive', 'maroon', 'navy', 'teal', 'silver', 'gold', 'extra']
+            ))
+        ])
+    assert "has too many options. Use 'allowed_values' for larger sets" in str(exc_info.value)
+
+    # Test allowed_values with many options (should work fine)
+    many_countries = ['USA', 'Canada', 'UK', 'France', 'Germany', 'Japan', 'Australia', 'Brazil', 'China', 'India',
+                      'Russia', 'Italy', 'Spain', 'Mexico', 'South Korea', 'Netherlands', 'Sweden', 'Switzerland', 
+                      'Norway', 'Denmark', 'Finland', 'Belgium', 'Austria', 'New Zealand', 'Ireland']
+    config = Config({'country': 'USA'}, [
+        dict(field='country', required=True, rules=dict(
+            type='str',
+            allowed_values=many_countries
+        ))
+    ])
+    assert config.country == 'USA'
+
+def test_len_rule():
+    schema = [
+        dict(field='code', required=True, rules=dict(
+            type='str',
+            len=6
+        )),
+        dict(field='items', required=True, rules=dict(
+            type='list',
+            len=3
+        )),
+        dict(field='data', required=True, rules=dict(
+            type='dict',
+            len=2
+        ))
+    ]
+
+    valid_config = {
+        'code': '123456',
+        'items': ['a', 'b', 'c'],
+        'data': {'key1': 'value1', 'key2': 'value2'}
+    }
+
+    config = Config(valid_config, schema)
+    assert config.code == '123456'
+    assert config.items == ['a', 'b', 'c']
+    assert config.data.to_dict() == {'key1': 'value1', 'key2': 'value2'}
+
+    # Test string length
+    with pytest.raises(ConfigValidationError) as exc_info:
+        Config({**valid_config, 'code': '12345'}, schema)
+    assert "Field 'code' length 5 does not match the expected length: 6" in str(exc_info.value)
+
+    # Test list length
+    with pytest.raises(ConfigValidationError) as exc_info:
+        Config({**valid_config, 'items': ['a', 'b', 'c', 'd']}, schema)
+    assert "Field 'items' length 4 does not match the expected length: 3" in str(exc_info.value)
+
+    # Test dict length
+    with pytest.raises(ConfigValidationError) as exc_info:
+        Config({**valid_config, 'data': {'key1': 'value1'}}, schema)
+    assert "Field 'data' length 1 does not match the expected length: 2" in str(exc_info.value)
+    

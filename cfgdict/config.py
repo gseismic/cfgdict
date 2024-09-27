@@ -4,7 +4,7 @@ import yaml
 import os
 import arrow
 from datetime import datetime, date
-from typing import Any, Dict, List, Optional, Union, Set
+from typing import Any, Dict, List, Optional, Union, Set, Tuple
 from copy import deepcopy
 from loguru import logger as default_logger
 from .utils import flatten_dict
@@ -77,12 +77,26 @@ class Config:
         for rule, rule_value in rules.items():
             if rule in ['min', 'max', 'gt', 'lt', 'ge', 'le', 'ne']:
                 self._apply_comparison_rule(field, value, rule, self._resolve_reference(rule_value))
-            elif rule in ['min_len', 'max_len']:
+            elif rule in ['min_len', 'max_len', 'len']:
                 self._apply_length_rule(field, value, rule, self._resolve_reference(rule_value))
             elif rule == 'regex':
                 self._apply_regex_rule(field, value, rule_value)
             elif rule == 'custom':
                 self._apply_custom_rule(field, value, rule_value)
+            elif rule == 'allowed_values':
+                self._apply_allowed_values_rule(field, value, self._resolve_reference(rule_value))
+            elif rule == 'disallowed_values':
+                self._apply_disallowed_values_rule(field, value, self._resolve_reference(rule_value))
+            elif rule == 'choices':
+                self._apply_choices_rule(field, value, self._resolve_reference(rule_value))
+            elif rule == 'range':
+                self._apply_range_rule(field, value, self._resolve_reference(rule_value))
+            elif rule == 'pattern':
+                self._apply_pattern_rule(field, value, rule_value)
+            elif rule == 'unique':
+                self._apply_unique_rule(field, value)
+            elif rule == 'contains':
+                self._apply_contains_rule(field, value, self._resolve_reference(rule_value))
 
         return value
 
@@ -137,6 +151,8 @@ class Config:
             raise ConfigValidationError(f"Field '{field}' length {len(value)} is less than the minimum length: {rule_value}")
         elif rule == 'max_len' and len(value) > rule_value:
             raise ConfigValidationError(f"Field '{field}' length {len(value)} is greater than the maximum length: {rule_value}")
+        elif rule == 'len' and len(value) != rule_value:
+            raise ConfigValidationError(f"Field '{field}' length {len(value)} does not match the expected length: {rule_value}")
 
     def _apply_regex_rule(self, field: str, value: str, pattern: str):
         if not isinstance(value, str):
@@ -144,6 +160,54 @@ class Config:
         
         if not re.match(pattern, value):
             raise ConfigValidationError(f"Field '{field}' does not match the required pattern: {pattern}")
+
+    def _apply_allowed_values_rule(self, field: str, value: Any, allowed_values: List[Any]):
+        if not isinstance(allowed_values, list):
+            raise ConfigValidationError(f"'allowed_values' rule for field '{field}' must be a list")
+        if value not in allowed_values:
+            raise ConfigValidationError(f"Field '{field}' with value {value} is not in the allowed values: {allowed_values}")
+
+    def _apply_disallowed_values_rule(self, field: str, value: Any, disallowed_values: List[Any]):
+        if not isinstance(disallowed_values, list):
+            raise ConfigValidationError(f"'disallowed_values' rule for field '{field}' must be a list")
+        if value in disallowed_values:
+            raise ConfigValidationError(f"Field '{field}' with value {value} is in the disallowed values: {disallowed_values}")
+
+    def _apply_choices_rule(self, field: str, value: Any, choices: List[Any]):
+        if not isinstance(choices, list):
+            raise ConfigValidationError(f"'choices' rule for field '{field}' must be a list")
+        if len(choices) > 20:  # 假设我们限制choices最多有20个选项
+            raise ConfigValidationError(f"'choices' rule for field '{field}' has too many options. Use 'allowed_values' for larger sets.")
+        if value not in choices:
+            raise ConfigValidationError(f"Field '{field}' with value {value} is not in the choices: {choices}")
+
+    def _apply_range_rule(self, field: str, value: Union[int, float], range_: Tuple[Union[int, float], Union[int, float]]):
+        if not isinstance(value, (int, float)) or not isinstance(range_, (tuple,list)) or len(range_) != 2:
+            raise ConfigValidationError(f"Invalid range rule for field '{field}'")
+        if not (range_[0] <= value <= range_[1]):
+            raise ConfigValidationError(f"Field '{field}' with value {value} is not in the range {range_}")
+
+    def _apply_pattern_rule(self, field: str, value: str, pattern: str):
+        if not isinstance(value, str):
+            raise ConfigValidationError(f"Pattern rule not applicable for field '{field}' of type {type(value)}")
+        if not re.match(pattern, value):
+            raise ConfigValidationError(f"Field '{field}' does not match the required pattern: {pattern}")
+
+    def _apply_unique_rule(self, field: str, value: List[Any]):
+        if not isinstance(value, list):
+            raise ConfigValidationError(f"Unique rule not applicable for field '{field}' of type {type(value)}")
+        if len(value) != len(set(value)):
+            raise ConfigValidationError(f"Field '{field}' contains duplicate values")
+
+    def _apply_contains_rule(self, field: str, value: Union[str, List[Any]], contained: Any):
+        if isinstance(value, str):
+            if contained not in value:
+                raise ConfigValidationError(f"Field '{field}' does not contain the required substring: {contained}")
+        elif isinstance(value, list):
+            if contained not in value:
+                raise ConfigValidationError(f"Field '{field}' does not contain the required element: {contained}")
+        else:
+            raise ConfigValidationError(f"Contains rule not applicable for field '{field}' of type {type(value)}")
 
     def _parse_datetime(self, value: Union[str, int, float, datetime]) -> datetime:
         if isinstance(value, datetime):
@@ -335,6 +399,9 @@ class Config:
             referenced_value = self._get_nested_value(self._config, referenced_field)
             return referenced_value
         return value
+    
+    def __repr__(self):
+        return f"Config({self._config})"
 
 
 def make_config(config, schema, strict=False, logger=None, to_dict=False, to_dict_flatten=False, to_dict_sep='.'):
