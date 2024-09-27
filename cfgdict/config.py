@@ -97,6 +97,8 @@ class Config:
                 self._apply_unique_rule(field, value)
             elif rule == 'contains':
                 self._apply_contains_rule(field, value, self._resolve_reference(rule_value))
+            else:
+                raise ConfigValidationError(f"Unknown rule: {rule}")
 
         return value
 
