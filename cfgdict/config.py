@@ -9,10 +9,10 @@ from copy import deepcopy
 from loguru import logger as default_logger
 from .utils import flatten_dict
 
-class ConfigValidationError(Exception):
+class ConfigValidationError(ValueError):
     pass
 
-class ConfigKeyError(Exception):
+class ConfigKeyError(KeyError):
     pass
 
 class Config:
