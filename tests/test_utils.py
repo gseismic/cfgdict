@@ -1,4 +1,5 @@
-from cfgdict import flatten_dict, unflatten_dict
+from cfgdict.utils import flatten_dict, unflatten_dict, nested_update_dict
+from loguru import logger
 
 def test_utils_basic():
     """
@@ -80,3 +81,27 @@ def test_utils_advanced():
     flattened = flatten_dict(deep_nested)
     assert flattened == {'a.b.c.d.e': 1}, "flatten_dict failed to handle deep nesting"
     assert unflatten_dict(flattened) == deep_nested, "unflatten_dict failed to handle deep nesting"
+
+def test_update_dict():
+    d = {'a': 1, 'b': 2, 'c': 3}
+    u = {'a': 10, 'b': 20, 'd': 40}
+    nested_update_dict(d, u, logger=logger)
+    assert d == {'a': 10, 'b': 20, 'c': 3, 'd': 40}
+    
+    d = {'a': None, 'b': 2, 'c': 3}
+    u = {'a': 10, 'b': 20, 'd': 40}
+    nested_update_dict(d, u, logger=logger)
+    assert d == {'a': 10, 'b': 20, 'c': 3, 'd': 40}
+
+def test_unflatten_dict():
+    d = {'a': 1, 'b.x': 2, 'b.y': 3, 'c': 4}
+    new_d = unflatten_dict(d, logger=logger)
+    print(d)
+    print(new_d)
+    assert new_d == {'a': 1, 'b': {'x': 2, 'y': 3}, 'c': 4}
+    
+    d = {'a': 1, 'b': {'y': 2}, 'b.y': 3, 'c': 4}
+    new_d = unflatten_dict(d, logger=logger)
+    print('input:', d)
+    print('output:', new_d)
+    assert new_d == {'a': 1, 'b': {'y': 3}, 'c': 4}

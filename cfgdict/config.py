@@ -1,13 +1,11 @@
 import re
 import json
 import yaml
-import os
 import arrow
 from datetime import datetime, date
-from typing import Any, Dict, List, Optional, Union, Set, Tuple
-from copy import deepcopy
+from typing import Any, Dict, List, Optional, Union, Tuple
 from loguru import logger as default_logger
-from .utils import flatten_dict, resolve_value
+from .utils import flatten_dict, resolve_value, nested_get_from_dict
 from .schema import Field, Schema
 from .exception import FieldValidationError, FieldKeyError
 
@@ -16,7 +14,7 @@ class Config:
     def __init__(self, 
                  config_dict: Optional[Dict[str, Any]] = None, 
                  schema: Optional[List[Dict[str, Any]]] = None, 
-                 strict: bool = False, 
+                 strict: bool = False,
                  verbose: bool = False, 
                  logger: Optional[Any] = None):
         """
@@ -59,14 +57,7 @@ class Config:
             if value is not None:
                 self._validate_field(key, value, field.rules)
 
-    def _validate_field(self, field: str, value: Any, rules: Dict[str, Any], schema: Optional[Schema] = None):
-        if rules is not None and schema is not None:
-            raise FieldValidationError("Cannot specify both rules and schema for a field")
-        
-        # if schema is not None:
-        #     self._validate_field(field, value, schema.rules, schema)
-        #     return
-        
+    def _validate_field(self, field: str, value: Any, rules: Dict[str, Any]):        
         if 'type' in rules:
             value = self._convert_type(value, rules['type'])
 
@@ -387,8 +378,9 @@ class Config:
 
     def _resolve_reference(self, value: Any) -> Any:
         if isinstance(value, str) and value.startswith('$'):
-            referenced_field = value[1:]
-            referenced_value = self._get_nested_value(self._config, referenced_field)
+            referenced_field = value[1:].strip()
+            # referenced_value = self._get_nested_value(self._config, referenced_field)
+            referenced_value = nested_get_from_dict(referenced_field, self._config, unflatten=True)
             return referenced_value
         return value
     
@@ -401,3 +393,6 @@ def make_config(config, schema, strict=False, logger=None, to_dict=False, to_dic
     if to_dict:
         return config.to_dict(flatten=to_dict_flatten, sep=to_dict_sep)
     return config
+
+
+__all__ = ['Config', 'make_config', 'Field', 'Schema']

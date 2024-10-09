@@ -2,33 +2,36 @@ from collections import OrderedDict
 from copy import deepcopy
 import json
 from .exception import SchemaError
-
-class Field:
-    def __init__(self, field, required=False, default=None, schema=None, **rules):
-        if schema is not None and rules:
-            raise SchemaError(f"Cannot specify both schema and rules, with schema={schema} and rules={rules}")
-        self.field = field
-        self.required = required
-        self.default = default
-        if schema is not None:
-            self.schema = Schema.make_schema(schema)
-        else:
-            self.schema = None
-        self.rules = rules
-    
-    def to_dict(self):
-        return {
-            'field': self.field,
-            'required': self.required,
-            'default': self.default,
-            'schema': self.schema.to_dict() if self.schema else None,
-            'rules': self.rules
-        }
-
-    def __repr__(self):
-        return f"Field(field={self.field}, required={self.required}, default={self.default}, schema={self.schema}, rules={self.rules})"
-
+from .field import Field
+import yaml
+import os
+from pathlib import Path
 class Schema:
+    """
+    example #1:
+        schema = Schema(
+            Field('name', required=True, type='str'),
+            Field('age', required=True, type='int', min=0, max=100),
+            Field('email', required=True, type='str', format='email'),
+            Field('is_student', required=True, type='bool'),
+            Field('courses', required=True, schema=Schema(
+                Field('name', required=True, type='str'),
+                Field('grade', required=True, type='int', min=0, max=100)
+            ))
+        )
+    
+    example #2:
+        schema = Schema(
+            name=Field(required=True, type='str'),
+            age=Field(required=True, type='int', min=0, max=100),
+            email=Field(required=True, type='str', format='email'),
+            is_student=Field(required=True, type='bool'),
+            courses=Field(required=True, schema=Schema(
+                Field('name', required=True, type='str'),
+                Field('grade', required=True, type='int', min=0, max=100)
+            ))
+        )
+    """
     def __init__(self, *args, **kwargs):
         self._fields = OrderedDict()
         self._add_fields_from_list(args)
@@ -46,7 +49,7 @@ class Schema:
         if isinstance(field, dict):
             _field = deepcopy(field)
             if name is None:
-                name = _field.pop('field', None)
+                name = _field.pop('name', None) or _field.pop('field', None)
             if name is None:
                 raise SchemaError("Field name is required")
             required = _field.pop('required', False)
@@ -54,9 +57,14 @@ class Schema:
             rules = _field.pop('rules', {})
             schema = _field.pop('schema', None)
             rules.update(_field)
+            
             self._fields[name] = Field(name, required, default, schema=schema, **rules)
         elif isinstance(field, Field):
-            self._fields[field.field] = field
+            if name is None:
+                name = field.field
+            else:
+                field.name = name
+            self._fields[name] = field
         else:
             raise SchemaError(f"Invalid field type: {field}")
 
@@ -67,6 +75,45 @@ class Schema:
     @classmethod
     def from_list(cls, l):
         return cls(*l)
+    
+    @classmethod
+    def from_json(cls, json_str):
+        return cls(**json.loads(json_str))
+    
+    @classmethod
+    def from_yaml(cls, yaml_str):
+        return cls(**yaml.safe_load(yaml_str))
+    
+    @classmethod
+    def from_file(cls, file_path):
+        _, ext = os.path.splitext(file_path)
+        with open(file_path, 'r') as f:
+            if ext.lower() == '.json':
+                return cls.from_json(f.read())
+            elif ext.lower() in ['.yaml', '.yml']:
+                return cls.from_yaml(f.read())
+            else:
+                raise SchemaError(f"Unsupported file format: {ext}")
+    
+    def to_dict(self):
+        return {field.name: field.to_dict() for field in self._fields.values()}
+    
+    def to_json(self, ensure_ascii=False):
+        return json.dumps(self.to_dict(), ensure_ascii=ensure_ascii)
+    
+    def to_yaml(self):
+        return yaml.dump(self.to_dict())
+    
+    def to_file(self, file_path):
+        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+        _, ext = os.path.splitext(file_path)
+        with open(file_path, 'w') as f:
+            if ext.lower() == '.json':
+                f.write(self.to_json())
+            elif ext.lower() in ['.yaml', '.yml']:
+                f.write(self.to_yaml())
+            else:
+                raise SchemaError(f"Unsupported file format: {ext}")
     
     @classmethod
     def make_schema(cls, schema):
@@ -109,6 +156,15 @@ class Schema:
     def items(self):
         return self._fields.items()
     
+    def keys(self):
+        return self._fields.keys()
+    
+    def values(self):
+        return self._fields.values()
+    
+    def get(self, key, default=None):
+        return self._fields.get(key, default)
+    
     def __len__(self):
         return len(self._fields)
     
@@ -122,18 +178,10 @@ class Schema:
         return f"Schema({dict(self._fields)})"
     
     def to_dict(self):
-        return {field.field: field.to_dict() for field in self._fields.values()}
+        return {field.name: field.to_dict() for field in self._fields.values()}
     
     def __deepcopy__(self, memo):
         new_schema = Schema()
         for field in self._fields.values():
-            new_schema._fields[field.field] = deepcopy(field, memo)
+            new_schema._fields[field.name] = deepcopy(field, memo)
         return new_schema
-    
-    def __getstate__(self):
-        return self._fields
-    
-    def __setstate__(self, state):
-        self._fields = OrderedDict()
-        for name, field in state.items():
-            self._fields[name] = field
