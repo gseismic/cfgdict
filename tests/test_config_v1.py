@@ -1,6 +1,6 @@
 import os
 import pytest
-from cfgdict.config import Config, Field, Schema,FieldValidationError, FieldKeyError
+from cfgdict.v1 import Config, Field, Schema,FieldValidationError, FieldKeyError
 
 import json
 

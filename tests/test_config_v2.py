@@ -1,7 +1,7 @@
 from cfgdict.utils import nested_update_dict, unflatten_dict, nested_get_from_dict
 from cfgdict.schema import Field, Schema
 # from cfgdict.config2 import Config
-from cfgdict.config2 import Config, Field, Schema,FieldValidationError, FieldKeyError, make_config
+from cfgdict.v2 import Config, Field, Schema,FieldValidationError, FieldKeyError, make_config
 
 from loguru import logger
 from cfgdict.exception import FieldKeyError
@@ -102,7 +102,7 @@ def test_from_file():
                     b=Field(schema=Schema(x=Field(type='int', ge=1), y=Field(type='int'))), 
                     c=Field(type='int', ge='$b.x'))
 
-    cfg = make_config(config_dict, schema=schema, logger=logger)
+    cfg = make_config(config_dict, schema=schema, logger=logger, version='v2')
     
     path = 'config_v2.yaml'
     cfg.to_file(path)

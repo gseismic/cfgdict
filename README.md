@@ -24,7 +24,7 @@ pip install git+https://github.com/gseismic/cfgdict.git
 ### Creating a Config
 ```python
 import os
-from cfgdict import Config
+from cfgdict.v1 import Config
 
 config_schema = [
     dict(field='API_KEY', required=True, rules=dict(type='str')),
@@ -73,7 +73,7 @@ print(cfg) # python-dict
 ### Flattening and Unflattening Dictionaries
 
 ```python
-from cfgdict import flatten_dict, unflatten_dict
+from cfgdict.v1 import flatten_dict, unflatten_dict
 
 nested_dict = {
     'a': 1,
@@ -143,7 +143,7 @@ set `verbose=True`
 cfgdict supports nested configurations:
 
 ```python
-from cfgdict import Config
+from cfgdict.v1 import Config
 
 nested_schema = [
     dict(field='database.host', required=True, rules=dict(type='str')),
@@ -175,7 +175,7 @@ print(config.to_dict())
 You can extend the validation system with custom rules:
 
 ```python
-from cfgdict import Config, ConfigValidationError
+from cfgdict.v1 import Config, ConfigValidationError
 
 def validate_even(value):
     if value % 2 != 0:
@@ -192,7 +192,8 @@ config = Config.from_dict({'even_number': 4}, schema=config_schema)
 
 ## More Examples
 For more usage examples, please refer to:
-- [tests/test_config.py](./tests/test_config.py)
+- [tests/test_config_v1.py](./tests/test_config_v1.py)
+- [tests/test_config_v2.py](./tests/test_config_v2.py)
 - [tests/test_utils.py](./tests/test_utils.py)
 
 ## TODOs

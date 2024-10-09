@@ -56,9 +56,10 @@ class Schema:
             default = _field.pop('default', None)
             rules = _field.pop('rules', {})
             schema = _field.pop('schema', None)
-            rules.update(_field)
+            # rules.update(_field)
             
-            self._fields[name] = Field(name, required, default, schema=schema, **rules)
+            self._fields[name] = Field(name, required, default, schema=schema, 
+                                       rules=rules, **_field)
         elif isinstance(field, Field):
             if name is None:
                 name = field.field
@@ -180,8 +181,16 @@ class Schema:
     def to_dict(self):
         return {field.name: field.to_dict() for field in self._fields.values()}
     
-    def __deepcopy__(self, memo):
-        new_schema = Schema()
-        for field in self._fields.values():
-            new_schema._fields[field.name] = deepcopy(field, memo)
-        return new_schema
+    # def __deepcopy__(self, memo):
+    #     new_schema = Schema()
+    #     for field in self._fields.values():
+    #         new_schema._fields[field.name] = deepcopy(field, memo)
+    #     return new_schema
+
+    def __getstate__(self):
+        state = {**self.__dict__}
+        # del state['logger']
+        return state
+    
+    def __setstate__(self, state):
+        self.__dict__.update(state)

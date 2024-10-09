@@ -1,4 +1,4 @@
-from cfgdict import Config
+from cfgdict.v1 import Config
 
 nested_schema = [
     dict(field='database.host', required=True, rules=dict(type='str')),

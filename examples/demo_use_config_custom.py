@@ -1,9 +1,9 @@
 
-from cfgdict import Config, ConfigValidationError
+from cfgdict.v1 import Config, FieldValidationError
 
 def validate_even(value):
     if value % 2 != 0:
-        raise ConfigValidationError(f"Value {value} is not even")
+        raise FieldValidationError(f"Value {value} is not even")
 
 config_schema = [
     dict(field='even_number', required=True, rules=dict(type='int', custom=validate_even))

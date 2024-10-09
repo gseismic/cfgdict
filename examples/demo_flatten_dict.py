@@ -1,4 +1,4 @@
-from cfgdict import flatten_dict, unflatten_dict
+from cfgdict.v1 import flatten_dict, unflatten_dict
 
 # test nested dict
 nested_dict = {
