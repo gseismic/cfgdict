@@ -6,6 +6,11 @@ from .field import Field
 import yaml
 import os
 from pathlib import Path
+
+class SchemaList(list):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
 class Schema:
     """
     example #1:
@@ -180,12 +185,6 @@ class Schema:
     
     def to_dict(self):
         return {field.name: field.to_dict() for field in self._fields.values()}
-    
-    # def __deepcopy__(self, memo):
-    #     new_schema = Schema()
-    #     for field in self._fields.values():
-    #         new_schema._fields[field.name] = deepcopy(field, memo)
-    #     return new_schema
 
     def __getstate__(self):
         state = {**self.__dict__}
