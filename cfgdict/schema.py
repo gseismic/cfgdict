@@ -98,8 +98,8 @@ class Schema:
     def to_dict(self):
         return {field.name: field.to_dict() for field in self._fields.values()}
     
-    def to_json(self, ensure_ascii=False):
-        return json.dumps(self.to_dict(), ensure_ascii=ensure_ascii)
+    def to_json(self, indent=4, ensure_ascii=False):
+        return json.dumps(self.to_dict(), indent=indent, ensure_ascii=ensure_ascii)
     
     def to_yaml(self):
         return yaml.dump(self.to_dict())

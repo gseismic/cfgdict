@@ -33,14 +33,28 @@ class Field:
     def field(self):
         return self.name
     
-    def to_dict(self):
-        return {
-            'name': self.name,
-            'required': self.required,
-            'default': self.default,
-            'schema': self.schema.to_dict() if self.schema else None,
-            'rules': self.rules
-        }
-
+    def to_dict(self, simplify=True):
+        if simplify:
+            out = {}
+            if self.name is not None:
+                out['name'] = self.name
+            if self.required is not None:
+                out['required'] = self.required
+            if self.default is not None:
+                out['default'] = self.default
+            if self.schema is not None:
+                out['schema'] = self.schema.to_dict()
+            if self.rules is not None:
+                out['rules'] = self.rules
+        else:
+            out = {
+                'name': self.name,
+                'required': self.required,
+                'default': self.default,
+                'schema': self.schema.to_dict() if self.schema else None,
+                'rules': self.rules
+            }
+        return out
+    
     def __repr__(self):
         return f"Field(name={self.name}, required={self.required}, default={self.default}, schema={self.schema}, rules={self.rules})"

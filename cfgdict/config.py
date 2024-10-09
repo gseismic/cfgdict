@@ -1,7 +1,9 @@
 import re
+import os
 import json
 import yaml
 import arrow
+from pathlib import Path
 from datetime import datetime, date
 from typing import Any, Dict, List, Optional, Union, Tuple
 from loguru import logger as default_logger
@@ -288,7 +290,12 @@ class Config:
             super().__setattr__(name, value)
         else:
             raise AttributeError('Not allowed, use `__setitem__` or `update()`')
-
+    
+    def __eq__(self, other):
+        if not isinstance(other, Config):
+            return False
+        return self._config == other._config
+    
     def update(self, *args, **kwargs):
         """
         Update the configuration with new values.
@@ -367,12 +374,30 @@ class Config:
 
     @classmethod
     def from_file(cls, file_path: str, schema: List[Dict[str, Any]], strict: bool = True, verbose: bool = False, logger: Optional[Any] = None):
+        # Path(file_path).parent.mkdir(parents=True, exist_ok=True)
         _, ext = os.path.splitext(file_path)
         with open(file_path, 'r') as f:
             if ext.lower() == '.json':
                 return cls.from_json(f.read(), schema, strict, verbose, logger)
             elif ext.lower() in ['.yaml', '.yml']:
                 return cls.from_yaml(f.read(), schema, strict, verbose, logger)
+            else:
+                raise FieldValidationError(f"Unsupported file format: {ext}")
+
+    def to_yaml(self):
+        return yaml.dump(self._config)
+    
+    def to_json(self, indent=4, ensure_ascii=False):
+        return json.dumps(self._config, indent=indent, ensure_ascii=ensure_ascii)
+    
+    def to_file(self, file_path: str):
+        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+        _, ext = os.path.splitext(file_path)
+        with open(file_path, 'w') as f:
+            if ext.lower() == '.json':
+                f.write(self.to_json())
+            elif ext.lower() in ['.yaml', '.yml']:
+                f.write(self.to_yaml())
             else:
                 raise FieldValidationError(f"Unsupported file format: {ext}")
 

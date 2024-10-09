@@ -88,6 +88,32 @@ def test_update():
     print(cfg)
     assert cfg.b.x == 10
     assert cfg.b.y == 11
+
+def test_from_file():
+    config_dict = {
+        'a': 1,
+        'b': {
+            'x': 2,
+            'y': 3
+        },
+        'c': 9
+    }
+    schema = Schema(not_exit=Field(required=False, default=9, type='int'),
+                    b=Field(schema=Schema(x=Field(type='int', ge=1), y=Field(type='int'))), 
+                    c=Field(type='int', ge='$b.x'))
+
+    cfg = make_config(config_dict, schema=schema, logger=logger)
+    
+    path = 'config_v2.yaml'
+    cfg.to_file(path)
+    cfg2 = Config.from_file(path, schema=schema, logger=logger)
+    assert cfg == cfg2
+
+    path = 'config_v2.json'
+    cfg.to_file(path)
+    cfg2 = Config.from_file(path, schema=schema, logger=logger)
+    assert cfg == cfg2
+    # assert 0
     
 if __name__ == "__main__":
     if 0:

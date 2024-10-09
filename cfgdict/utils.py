@@ -160,15 +160,12 @@ def make_dict(config_dict, schema, logger=None) -> Dict[str, Any]:
     if schema is None:
         return config_dict
     
-    print(f'{config_dict=}')
-    print(f'{schema=}')
     keys_dict = set(config_dict.keys())
     keys_schema = set(schema.keys())
     keys = keys_dict.union(keys_schema)
     for key in keys:
         field = schema.get(key)
         value = config_dict.get(key)
-        # print(f'{key=}: {field=} {value=}')
         if isinstance(value, dict):
             field_schema = field.schema if field else None
             config_dict[key] = make_dict(value, field_schema, logger=logger)

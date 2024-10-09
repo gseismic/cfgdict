@@ -97,7 +97,6 @@ class Config:
             'date': self._parse_date,
             'datetime': self._parse_datetime
         }
-        # print(field, value, expected_type)
         if expected_type not in type_mapping:
             raise FieldValidationError(f"{field}: Unsupported type: `{expected_type}`")
         try:
@@ -273,6 +272,11 @@ class Config:
             field = self._schema.get(name)
             self.update_key(name, value, field)
     
+    def __eq__(self, other):
+        if not isinstance(other, Config):
+            return False
+        return self._config == other._config
+    
     def __repr__(self):
         return f"Config({self._config})"
     
@@ -290,17 +294,36 @@ class Config:
         return cls(config_dict, schema, strict, verbose, logger)
 
     @classmethod
-    def from_json(cls, json_str: str, schema: List[Dict[str, Any]], strict: bool = None, verbose: bool = None, logger: Optional[Any] = None):
+    def from_json(cls, json_str: str, schema, strict: bool = None, verbose: bool = None, logger: Optional[Any] = None):
         config_dict = json.loads(json_str)
+        if isinstance(schema, (str, Path)):
+            schema = Schema.from_file(schema)
+        elif schema is None:
+            pass
         return cls(config_dict, schema, strict, verbose, logger)
 
+    @classmethod
+    def parse_schema(cls, schema: List[Dict[str, Any]]):
+        if schema is None:
+            schema_file = cls._make_schema_path(file_path)
+            if os.path.exists(schema_file):
+                schema = Schema.from_file(schema_file)
+            else:
+                schema = None
+        else:
+            if isinstance(schema, (str, Path)):
+                schema = Schema.from_file(schema)
+        return schema
+    
     @classmethod
     def from_yaml(cls, yaml_str: str, schema: List[Dict[str, Any]], strict: bool = True, verbose: bool = False, logger: Optional[Any] = None):
+        schema = cls.parse_schema(schema)
         config_dict = yaml.safe_load(yaml_str)
         return cls(config_dict, schema, strict, verbose, logger)
-
+    
     @classmethod
-    def from_file(cls, file_path: str, schema: List[Dict[str, Any]], strict: bool = True, verbose: bool = False, logger: Optional[Any] = None):
+    def from_file(cls, file_path: str, schema, strict: bool = True, verbose: bool = False, logger: Optional[Any] = None):
+        schema = cls.parse_schema(schema)
         _, ext = os.path.splitext(file_path)
         with open(file_path, 'r') as f:
             if ext.lower() == '.json':
@@ -313,14 +336,23 @@ class Config:
     def to_dict(self):
         return self._config
 
-    def to_json(self, ensure_ascii=False):
-        return json.dumps(self._config, ensure_ascii=ensure_ascii)
+    def to_json(self, indent=4, ensure_ascii=False):
+        return json.dumps(self._config, indent=indent, ensure_ascii=ensure_ascii)
 
     def to_yaml(self):
         return yaml.dump(self._config)
+    
+    @classmethod
+    def _make_schema_path(cls, file_path):
+        paths = file_path.split('.')
+        paths.insert(-1, 'schema')
+        schema_file = '.'.join(paths)
+        return schema_file
 
     def to_file(self, file_path):
         # ensure dir exists
+        schema_file = self._make_schema_path(file_path)
+        self._schema.to_file(schema_file)
         Path(file_path).parent.mkdir(parents=True, exist_ok=True)
         _, ext = os.path.splitext(file_path)
         with open(file_path, 'w') as f:
