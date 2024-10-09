@@ -18,7 +18,7 @@ class Config:
     
     def __init__(self, 
                 config_dict: Optional[Dict[str, Any]] = None, 
-                schema: Optional[List[Dict[str, Any]]] = None, 
+                schema: Optional[Union[Schema, List[Schema]]] = None, 
                 strict: bool = False, 
                 verbose: bool = False, 
                 logger: Optional[Any] = None):

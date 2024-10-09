@@ -1,5 +1,5 @@
 
-default_version = 'v1'
+default_version = 'v2'
 
 def make_config_v1(config, schema, strict=False, logger=None, to_dict=False, to_dict_flatten=False, to_dict_sep='.'):
     from .v1 import Config as Config_v1
