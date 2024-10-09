@@ -7,20 +7,17 @@ from datetime import datetime, date
 from typing import Any, Dict, List, Optional, Union, Set, Tuple
 from copy import deepcopy
 from loguru import logger as default_logger
-from .utils import flatten_dict
+from .utils import flatten_dict, resolve_value
+from .schema import Field, Schema
+from .exception import FieldValidationError, FieldKeyError
 
-class ConfigValidationError(ValueError):
-    pass
-
-class ConfigKeyError(KeyError):
-    pass
 
 class Config:
     def __init__(self, 
                  config_dict: Optional[Dict[str, Any]] = None, 
                  schema: Optional[List[Dict[str, Any]]] = None, 
-                 strict: bool = None, 
-                 verbose: bool = None, 
+                 strict: bool = False, 
+                 verbose: bool = False, 
                  logger: Optional[Any] = None):
         """
         Initialize a Config object.
@@ -33,44 +30,43 @@ class Config:
             logger: Custom logger object.
         """
         self._config = config_dict or {}
-        self._schema = {item['field']: item for item in (schema or [])}
+        self._schema = Schema.make_schema(schema)
         self._strict = strict or False
         self._verbose = verbose or False
         self._logger = logger or default_logger
 
-        self._validate_schema()
         self._validate_and_set(self._config)
-
-    def _validate_schema(self) -> None:
-        """Validate the configuration schema."""
-        for field, field_schema in self._schema.items():
-            if 'field' not in field_schema:
-                raise ConfigValidationError("Each schema item must have a 'field' key")
-            if 'rules' in field_schema and not isinstance(field_schema['rules'], dict):
-                raise ConfigValidationError(f"Rules for field '{field}' must be a dictionary")
-            if not field_schema.get('required', False) and 'default' not in field_schema:
-                raise ConfigValidationError(f"Field '{field}' is not required but has no default value")
 
     def _validate_and_set(self, config: Dict[str, Any]):
         # First pass: set all values without validation
-        for field, schema in self._schema.items():
-            value = self._get_nested_value(config, field)
-            if value is None:
-                if schema.get('required', False):
-                    raise ConfigValidationError(f"Missing required field: {field}")
-                value = schema['default']
-                if self._verbose:
-                    self._logger.info(f"Using default value for '{field}': {value}")
-            value = self._resolve_value(value)  # 解析环境变量
-            self._set_nested_value(field, value)
+        for key, field in self._schema.items():
+            if field.schema is not None:
+                pass
+            else:
+                value = self._get_nested_value(config, key)
+                if value is None:
+                    if field.required:
+                        raise FieldValidationError(f"Missing required field: `{key}`")
+                    value = field.default
+                    if self._verbose:
+                        self._logger.info(f"Using default value for `{key}`: {value}")
+                value = resolve_value(value)
+                self._set_nested_value(key, value)
 
         # Second pass: validate all fields
-        for field, schema in self._schema.items():
-            value = self._get_nested_value(self._config, field)
+        for key, field in self._schema.items():
+            value = self._get_nested_value(self._config, key)
             if value is not None:
-                self._validate_field(field, value, schema.get('rules', {}))
+                self._validate_field(key, value, field.rules)
 
-    def _validate_field(self, field: str, value: Any, rules: Dict[str, Any]):
+    def _validate_field(self, field: str, value: Any, rules: Dict[str, Any], schema: Optional[Schema] = None):
+        if rules is not None and schema is not None:
+            raise FieldValidationError("Cannot specify both rules and schema for a field")
+        
+        # if schema is not None:
+        #     self._validate_field(field, value, schema.rules, schema)
+        #     return
+        
         if 'type' in rules:
             value = self._convert_type(value, rules['type'])
 
@@ -99,17 +95,17 @@ class Config:
                 self._apply_contains_rule(field, value, self._resolve_reference(rule_value))
             else:
                 if rule != 'type':
-                   raise ConfigValidationError(f"Unknown rule: {rule}")
+                   raise FieldValidationError(f"Unknown rule: `{rule}`")
 
         return value
 
     def _apply_custom_rule(self, field: str, value: Any, custom_func):
         if not callable(custom_func):
-            raise ConfigValidationError(f"Custom rule for field '{field}' must be a callable")
+            raise FieldValidationError(f"Custom rule for field `{field}` must be a callable")
         try:
             custom_func(value)
         except Exception as e:
-            raise ConfigValidationError(f"Custom validation failed for field '{field}': {str(e)}")
+            raise FieldValidationError(f"Custom validation failed for field `{field}`: {str(e)}")
 
     def _convert_type(self, value: Any, expected_type: str) -> Any:
         type_mapping = {
@@ -123,15 +119,15 @@ class Config:
             'datetime': self._parse_datetime
         }
         if expected_type not in type_mapping:
-            raise ConfigValidationError(f"Unsupported type: {expected_type}")
+            raise FieldValidationError(f"Unsupported type: `{expected_type}`")
         try:
             return type_mapping[expected_type](value)
         except ValueError:
-            raise ConfigValidationError(f"Cannot convert value to {expected_type}: {value}")
+            raise FieldValidationError(f"Cannot convert value to `{expected_type}`: {value}")
 
     def _apply_comparison_rule(self, field: str, value: Any, rule: str, rule_value: Any):
         if not isinstance(value, (int, float, date, datetime)):
-            raise ConfigValidationError(f"Comparison rule '{rule}' not applicable for field '{field}' of type {type(value)}")
+            raise FieldValidationError(f"Comparison rule '{rule}' not applicable for field `{field}` of type {type(value)}")
         
         comparison_ops = {
             'min': lambda x, y: x >= y,
@@ -144,73 +140,73 @@ class Config:
         }
         
         if not comparison_ops[rule](value, rule_value):
-            raise ConfigValidationError(f"Field '{field}' with value {value} does not satisfy the {rule} condition: {rule_value}")
+            raise FieldValidationError(f"Field `{field}` with value {value} does not satisfy the {rule} condition: {rule_value}")
 
     def _apply_length_rule(self, field: str, value: Any, rule: str, rule_value: int):
         if not hasattr(value, '__len__'):
-            raise ConfigValidationError(f"Length rule '{rule}' not applicable for field '{field}' of type {type(value)}")
+            raise FieldValidationError(f"Length rule '{rule}' not applicable for field `{field}` of type {type(value)}")
         
         if rule == 'min_len' and len(value) < rule_value:
-            raise ConfigValidationError(f"Field '{field}' length {len(value)} is less than the minimum length: {rule_value}")
+            raise FieldValidationError(f"Field `{field}` length {len(value)} is less than the minimum length: {rule_value}")
         elif rule == 'max_len' and len(value) > rule_value:
-            raise ConfigValidationError(f"Field '{field}' length {len(value)} is greater than the maximum length: {rule_value}")
+            raise FieldValidationError(f"Field `{field}` length {len(value)} is greater than the maximum length: {rule_value}")
         elif rule == 'len' and len(value) != rule_value:
-            raise ConfigValidationError(f"Field '{field}' length {len(value)} does not match the expected length: {rule_value}")
+            raise FieldValidationError(f"Field `{field}` length {len(value)} does not match the expected length: {rule_value}")
 
     def _apply_regex_rule(self, field: str, value: str, pattern: str):
         if not isinstance(value, str):
-            raise ConfigValidationError(f"Regex rule not applicable for field '{field}' of type {type(value)}")
+            raise FieldValidationError(f"Regex rule not applicable for field `{field}` of type {type(value)}")
         
         if not re.match(pattern, value):
-            raise ConfigValidationError(f"Field '{field}' does not match the required pattern: {pattern}")
+            raise FieldValidationError(f"Field `{field}` does not match the required pattern: {pattern}")
 
     def _apply_allowed_values_rule(self, field: str, value: Any, allowed_values: List[Any]):
         if not isinstance(allowed_values, list):
-            raise ConfigValidationError(f"'allowed_values' rule for field '{field}' must be a list")
+            raise FieldValidationError(f"'allowed_values' rule for field `{field}` must be a list")
         if value not in allowed_values:
-            raise ConfigValidationError(f"Field '{field}' with value {value} is not in the allowed values: {allowed_values}")
+            raise FieldValidationError(f"Field `{field}` with value {value} is not in the allowed values: {allowed_values}")
 
     def _apply_disallowed_values_rule(self, field: str, value: Any, disallowed_values: List[Any]):
         if not isinstance(disallowed_values, list):
-            raise ConfigValidationError(f"'disallowed_values' rule for field '{field}' must be a list")
+            raise FieldValidationError(f"'disallowed_values' rule for field `{field}` must be a list")
         if value in disallowed_values:
-            raise ConfigValidationError(f"Field '{field}' with value {value} is in the disallowed values: {disallowed_values}")
+            raise FieldValidationError(f"Field `{field}` with value {value} is in the disallowed values: {disallowed_values}")
 
     def _apply_choices_rule(self, field: str, value: Any, choices: List[Any]):
         if not isinstance(choices, list):
-            raise ConfigValidationError(f"'choices' rule for field '{field}' must be a list")
+            raise FieldValidationError(f"'choices' rule for field `{field}` must be a list")
         if len(choices) > 20:  # 假设我们限制choices最多有20个选项
-            raise ConfigValidationError(f"'choices' rule for field '{field}' has too many options. Use 'allowed_values' for larger sets.")
+            raise FieldValidationError(f"'choices' rule for field `{field}` has too many options. Use `allowed_values` for larger sets.")
         if value not in choices:
-            raise ConfigValidationError(f"Field '{field}' with value {value} is not in the choices: {choices}")
+            raise FieldValidationError(f"Field `{field}` with value {value} is not in the choices: {choices}")
 
     def _apply_range_rule(self, field: str, value: Union[int, float], range_: Tuple[Union[int, float], Union[int, float]]):
         if not isinstance(value, (int, float)) or not isinstance(range_, (tuple,list)) or len(range_) != 2:
-            raise ConfigValidationError(f"Invalid range rule for field '{field}'")
+            raise FieldValidationError(f"Invalid range rule for field `{field}`")
         if not (range_[0] <= value <= range_[1]):
-            raise ConfigValidationError(f"Field '{field}' with value {value} is not in the range {range_}")
+            raise FieldValidationError(f"Field `{field}` with value {value} is not in the range {range_}")
 
     def _apply_pattern_rule(self, field: str, value: str, pattern: str):
         if not isinstance(value, str):
-            raise ConfigValidationError(f"Pattern rule not applicable for field '{field}' of type {type(value)}")
+            raise FieldValidationError(f"Pattern rule not applicable for field `{field}` of type {type(value)}")
         if not re.match(pattern, value):
-            raise ConfigValidationError(f"Field '{field}' does not match the required pattern: {pattern}")
+            raise FieldValidationError(f"Field `{field}` does not match the required pattern: {pattern}")
 
     def _apply_unique_rule(self, field: str, value: List[Any]):
         if not isinstance(value, list):
-            raise ConfigValidationError(f"Unique rule not applicable for field '{field}' of type {type(value)}")
+            raise FieldValidationError(f"Unique rule not applicable for field `{field}` of type {type(value)}")
         if len(value) != len(set(value)):
-            raise ConfigValidationError(f"Field '{field}' contains duplicate values")
+            raise FieldValidationError(f"Field `{field}` contains duplicate values")
 
     def _apply_contains_rule(self, field: str, value: Union[str, List[Any]], contained: Any):
         if isinstance(value, str):
             if contained not in value:
-                raise ConfigValidationError(f"Field '{field}' does not contain the required substring: {contained}")
+                raise FieldValidationError(f"Field `{field}` does not contain the required substring: {contained}")
         elif isinstance(value, list):
             if contained not in value:
-                raise ConfigValidationError(f"Field '{field}' does not contain the required element: {contained}")
+                raise FieldValidationError(f"Field `{field}` does not contain the required element: {contained}")
         else:
-            raise ConfigValidationError(f"Contains rule not applicable for field '{field}' of type {type(value)}")
+            raise FieldValidationError(f"Contains rule not applicable for field `{field}` of type {type(value)}")
 
     def _parse_datetime(self, value: Union[str, int, float, datetime]) -> datetime:
         if isinstance(value, datetime):
@@ -218,7 +214,7 @@ class Config:
         try:
             return arrow.get(value).datetime
         except arrow.ParserError:
-            raise ConfigValidationError(f"Invalid datetime format: {value}")
+            raise FieldValidationError(f"Invalid datetime format: {value}")
 
     def _parse_date(self, value: Union[str, int, float, date]) -> date:
         if isinstance(value, date):
@@ -226,7 +222,7 @@ class Config:
         try:
             return arrow.get(value).date()
         except arrow.ParserError:
-            raise ConfigValidationError(f"Invalid date format: {value}")
+            raise FieldValidationError(f"Invalid date format: {value}")
 
     def _get_nested_value(self, config: Dict[str, Any], field: str) -> Any:
         keys = field.split('.')
@@ -234,7 +230,7 @@ class Config:
         for key in keys:
             if isinstance(value, dict) and key in value:
                 value = value[key]
-                value = self._resolve_value(value)  # 解析环境变量
+                value = resolve_value(value)  # 解析环境变量
             else:
                 return None
         return value
@@ -254,13 +250,6 @@ class Config:
             self._update_nested_dict(current[keys[-1]], value)
         else:
             current[keys[-1]] = value
-    
-    def _resolve_value(self, value):
-        if isinstance(value, str):
-            if value.lower().startswith('!env'):
-                env_key = value[4:].strip().lstrip('{').rstrip('}').strip()
-                value = os.getenv(env_key)
-        return value
 
     def _update_nested_dict(self, current: dict, update: dict):
         for k, v in update.items():
@@ -272,7 +261,7 @@ class Config:
     def __getitem__(self, key: str) -> Any:
         value = self._get_nested_value(self._config, key)
         if value is None and not self._key_exists(self._config, key):
-            raise ConfigKeyError(key)
+            raise FieldKeyError(key)
         return value
 
     def __getattr__(self, name: str) -> Any:
@@ -281,13 +270,13 @@ class Config:
             if value is None:
                 # 如果值为None，我们需要检查这个键是否真的存在
                 if not self._key_exists(self._config, name):
-                    raise ConfigKeyError(name)
+                    raise FieldKeyError(name)
             
             if isinstance(value, dict):
                 return Config(value, strict=self._strict, verbose=self._verbose, logger=self._logger)
             
             return value
-        except ConfigKeyError:
+        except FieldKeyError:
             raise AttributeError(f"'Config' object has no attribute '{name}'")
 
     def _key_exists(self, config: Dict[str, Any], field: str) -> bool:
@@ -329,10 +318,10 @@ class Config:
 
         for field, value in kwargs.items():
             if field in self._schema:
-                self._validate_field(field, value, self._schema[field].get('rules', {}))
+                self._validate_field(field, value, self._schema[field].rules)
                 self._set_nested_value(field, value)
             elif self._strict:
-                raise ConfigKeyError(f"Unknown configuration key: {field}")
+                raise FieldKeyError(f"Unknown configuration key: {field}")
             else:
                 self._set_nested_value(field, value)
 
@@ -394,7 +383,7 @@ class Config:
             elif ext.lower() in ['.yaml', '.yml']:
                 return cls.from_yaml(f.read(), schema, strict, verbose, logger)
             else:
-                raise ConfigValidationError(f"Unsupported file format: {ext}")
+                raise FieldValidationError(f"Unsupported file format: {ext}")
 
     def _resolve_reference(self, value: Any) -> Any:
         if isinstance(value, str) and value.startswith('$'):

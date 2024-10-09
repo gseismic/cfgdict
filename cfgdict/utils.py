@@ -1,4 +1,5 @@
 from typing import Dict, Any
+import os
 
 def flatten_dict(d: Dict[str, Any], parent_key: str = '', sep: str = '.') -> Dict[str, Any]:
     items = []
@@ -22,3 +23,9 @@ def unflatten_dict(d: Dict[str, Any], sep: str = '.') -> Dict[str, Any]:
         current[parts[-1]] = value
     return result
 
+def resolve_value(value):
+    if isinstance(value, str):
+        if value.lower().startswith('!env'):
+            env_key = value[4:].strip().lstrip('{').rstrip('}').strip()
+            value = os.getenv(env_key)
+    return value
