@@ -13,7 +13,6 @@ from .exception import FieldValidationError, FieldKeyError
 # from .utils import nested_update_dict
 from .utils import make_dict, nested_get_from_dict, nested_set_dict
 
-
 class Config:
     
     def __init__(self, 
@@ -43,6 +42,8 @@ class Config:
                 self._validate_config(value, field.schema)
                 continue
             
+            if value is None:
+                continue
             self._validate_field(key, value, field.rules)
 
     def _validate_field(self, field: str, value: Any, rules: Dict[str, Any]):        
@@ -100,7 +101,10 @@ class Config:
         if expected_type not in type_mapping:
             raise FieldValidationError(f"{field}: Unsupported type: `{expected_type}`")
         try:
-            return type_mapping[expected_type](value)
+            if value is None:
+                return None
+            else:
+                return type_mapping[expected_type](value)
         except ValueError:
             raise FieldValidationError(f"{field}: Cannot convert value to `{expected_type}`: {value}")
 

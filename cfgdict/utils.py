@@ -1,7 +1,15 @@
 from typing import Dict, Any
 import os
+from enum import IntEnum
 from .exception import FieldValidationError, FieldKeyError
 
+
+class HasDefault(IntEnum):
+    # HAS_DEFAULT = 0
+    NO_DEFAULT = 1
+    
+def default_exists(field: 'Field'):
+    return not (field.default == HasDefault.NO_DEFAULT and isinstance(field.default, HasDefault))
 
 def flatten_dict(d: Dict[str, Any], parent_key: str = '', sep: str = '.') -> Dict[str, Any]:
     """Flatten dict
@@ -176,7 +184,7 @@ def make_dict(config_dict, schema, logger=None) -> Dict[str, Any]:
                         raise FieldKeyError(f"Field `{key}` is required but not found in config")
                     else:
                         field_default = field.default
-                        if field_default is not None:
+                        if default_exists(field):
                             config_dict[key] = field_default
                         else:
                             if logger is not None:
