@@ -16,7 +16,7 @@ class Field:
             if rules:
                 raise SchemaError(f"Cannot specify both schema and rules, with schema={schema} and rules={rules}")
             # 当schema指定时，default不能指定
-            if default is not None:
+            if default != HasDefault.NO_DEFAULT:
                 raise SchemaError(f"Cannot specify both default and schema, with default={default} and schema={schema}")
         else:
             # schema is None时，required和default不能同时指定

@@ -1,5 +1,8 @@
 import os
-from cfgdict.v2 import Config, Field, Schema
+# OK
+#from cfgdict.v2 import Config, Field, Schema
+# OK default: use v2
+from cfgdict import Config, Field, Schema
 
 config_schema = [
     dict(name='API_KEY', required=True, type='str'),

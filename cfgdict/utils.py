@@ -5,7 +5,7 @@ from .exception import FieldValidationError, FieldKeyError
 
 
 class HasDefault(IntEnum):
-    # HAS_DEFAULT = 0
+    HAS_DEFAULT = 0
     NO_DEFAULT = 1
     
 def default_exists(field: 'Field'):
