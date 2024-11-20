@@ -2,6 +2,7 @@ import re
 import json
 import yaml
 import os
+import copy
 import arrow
 from pathlib import Path
 from datetime import datetime, date
@@ -11,7 +12,7 @@ from .utils import flatten_dict
 from .schema import Field, Schema
 from .exception import FieldValidationError, FieldKeyError
 # from .utils import nested_update_dict
-from .utils import make_dict, nested_get_from_dict, nested_set_dict
+from .utils import make_dict, nested_get_from_dict, nested_set_dict, flatten_dict
 
 class Config:
     
@@ -287,11 +288,11 @@ class Config:
     def __str__(self):
         return f"Config({self._config})"
     
-    def to_dict(self, flatten=False, sep='.') -> Dict[str, Any]:
-        if not flatten:
-            return self._config
-        else:
-            return flatten_dict(self._config, sep=sep)
+    # def to_dict(self, flatten=False, sep='.') -> Dict[str, Any]:
+    #     if not flatten:
+    #         return self._config
+    #     else:
+    #         return flatten_dict(self._config, sep=sep)
 
     @property
     def schema(self):
@@ -341,8 +342,11 @@ class Config:
             else:
                 raise FieldValidationError(f"Unsupported file format: {ext}")
     
-    def to_dict(self):
-        return self._config
+    def to_dict(self, flatten=False, sep='.') -> Dict[str, Any]:
+        if not flatten:
+            return copy.deepcopy(self._config)
+        else:
+            return flatten_dict(self._config, sep=sep)
 
     def to_json(self, indent=4, ensure_ascii=False):
         return json.dumps(self._config, indent=indent, ensure_ascii=ensure_ascii)
